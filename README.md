@@ -4,7 +4,7 @@
 
 ## 项目介绍
 
-基于 Spring Boot + MyBatis + MySQL 的商品库存与秒杀系统，采用 Docker 容器化部署，实现高并发读场景下的负载均衡、动静分离、分布式缓存、MySQL读写分离和ElasticSearch商品搜索。
+基于 Spring Boot + MyBatis + MySQL 的商品库存与秒杀系统，采用 Docker 容器化部署，实现高并发读写场景下的负载均衡、动静分离、分布式缓存、MySQL读写分离、ElasticSearch商品搜索、Kafka消息队列异步下单。
 
 ## 技术栈
 
@@ -13,19 +13,20 @@
 | Spring Boot 2.7.18 | 后端框架 |
 | MyBatis 2.3.2 | ORM框架 |
 | MySQL 8.0 (主从) | 关系型数据库，支持读写分离 |
-| Redis 7 | 分布式缓存 |
+| Redis 7 | 分布式缓存 + 库存预减 + 幂等校验 |
+| Kafka (Confluent 7.5) | 消息队列，异步处理秒杀订单 |
 | ElasticSearch 7.17 | 商品搜索引擎 |
 | Nginx | 反向代理 / 负载均衡 / 动静分离 |
-| Docker Compose | 容器编排 |
+| Docker Compose | 容器编排（9个服务） |
 | JWT | 用户认证 |
-| Druid | 数据库连接池 |
+| 雪花算法 | 分布式订单ID生成 |
 
 ## 项目结构
 
 ```
 DistributedSoftware/
 ├── Dockerfile                          # 后端服务镜像（多阶段构建）
-├── docker-compose.yml                  # 容器编排配置
+├── docker-compose.yml                  # 容器编排（9个服务）
 ├── pom.xml                             # Maven依赖管理
 ├── nginx/
 │   └── nginx.conf                      # Nginx配置（负载均衡 + 动静分离）
@@ -44,40 +45,51 @@ DistributedSoftware/
     │   │   ├── Result.java             # 统一响应封装
     │   │   └── GlobalExceptionHandler.java
     │   ├── config/
-    │   │   ├── DataSourceConfig.java   # 动态数据源配置
+    │   │   ├── DataSourceConfig.java   # 动态数据源配置（主从）
     │   │   ├── DynamicDataSource.java  # 动态数据源路由
     │   │   ├── DynamicDataSourceContextHolder.java
     │   │   ├── DataSourceAspect.java   # AOP切面（自动切换数据源）
-    │   │   └── ReadOnly.java           # 读操作注解
+    │   │   ├── ReadOnly.java           # 读操作注解
+    │   │   └── SeckillConfig.java      # 秒杀配置（雪花ID + Kafka Topic）
     │   ├── controller/
     │   │   ├── UserController.java     # 用户注册/登录
     │   │   ├── ProductController.java  # 商品查询 + 读写分离测试
-    │   │   └── SearchController.java   # ES商品搜索
+    │   │   ├── SearchController.java   # ES商品搜索
+    │   │   └── SeckillController.java  # 秒杀下单 + 订单查询
     │   ├── service/impl/
     │   │   ├── UserServiceImpl.java
-    │   │   ├── ProductServiceImpl.java # Redis缓存 + @ReadOnly读写分离
-    │   │   └── ProductSearchServiceImpl.java  # ES搜索服务
+    │   │   ├── ProductServiceImpl.java # Redis缓存（穿透/击穿/雪崩）
+    │   │   ├── ProductSearchServiceImpl.java  # ES搜索
+    │   │   ├── SeckillServiceImpl.java # 秒杀核心逻辑
+    │   │   └── SeckillOrderConsumer.java  # Kafka消费者
     │   ├── mapper/
     │   │   ├── UserMapper.java
     │   │   ├── ProductMapper.java
-    │   │   └── ProductSearchRepository.java   # ES Repository
+    │   │   ├── SeckillOrderMapper.java
+    │   │   └── ProductSearchRepository.java
     │   ├── entity/
     │   │   ├── User.java
     │   │   ├── Product.java
+    │   │   ├── SeckillOrder.java       # 秒杀订单实体
     │   │   └── ProductDocument.java    # ES文档实体
     │   ├── dto/
+    │   │   └── SeckillMessage.java     # Kafka消息DTO
     │   └── util/
+    │       ├── JwtUtil.java
+    │       ├── MD5Util.java
+    │       └── SnowflakeIdGenerator.java  # 雪花算法ID生成器
     └── resources/
-        ├── application.yml             # 应用配置（主从数据源 + Redis + ES）
-        ├── schema.sql                  # 数据库初始化脚本
+        ├── application.yml             # 应用配置（MySQL主从 + Redis + ES + Kafka）
+        ├── schema.sql                  # 数据库初始化（用户表 + 商品表 + 订单表）
         └── mapper/*.xml
+
 ```
 
 ## 功能模块
 
 ### 用户服务
 - POST `/api/user/register` — 用户注册
-- POST `/api/user/login` — 用户登录（返回JWT Token）
+- POST `/api/user/login` — 用户登录（返回JWT Token + userId）
 
 ### 商品服务
 - GET `/api/product/list` — 商品列表（@ReadOnly → 从库读取）
@@ -88,6 +100,12 @@ DistributedSoftware/
 ### 搜索服务（ElasticSearch）
 - GET `/api/search?keyword=xxx` — 商品搜索
 - POST `/api/search/sync` — 同步MySQL商品数据到ES
+
+### 秒杀服务（Kafka + Redis）
+- POST `/api/seckill/{productId}?userId=xxx` — 秒杀下单
+- GET `/api/seckill/order/{orderId}` — 按订单ID查询
+- GET `/api/seckill/orders?userId=xxx` — 按用户ID查询订单列表
+- POST `/api/seckill/init-stock` — 重新初始化Redis库存缓存
 
 ## 高并发读方案
 
@@ -129,12 +147,46 @@ Nginx 将 API 请求分发到两个后端实例，支持三种算法：
 - **主库**（mysql-master:3307）：处理写操作（INSERT/UPDATE/DELETE）
 - **从库**（mysql-slave:3308）：处理读操作（SELECT），通过GTID自动同步
 - **实现方式**：自定义 `@ReadOnly` 注解 + AOP切面 + AbstractRoutingDataSource动态路由
-- **验证**：访问 `/api/product/rw-test`，后端日志会打印 `[读写分离] 切换到从库`
 
 ### 5. 商品搜索（ElasticSearch）
 - 通过 `/api/search/sync` 将MySQL商品数据同步到ES
 - 通过 `/api/search?keyword=iPhone` 进行全文搜索
-- 支持商品名称和描述的模糊匹配
+
+## 高并发写方案（秒杀）
+
+```
+秒杀请求 → Nginx → App
+                    │
+        ┌───────────┴───────────┐
+        │  1. Redis幂等校验     │  ← SETNX 防止重复下单
+        │  2. Redis预减库存     │  ← DECR 原子操作，快速判断库存
+        │  3. 发送Kafka消息     │  ← 异步削峰填谷
+        └───────────┬───────────┘
+                    │
+        ┌───────────┴───────────┐
+        │  Kafka Consumer       │
+        │  1. DB幂等二次校验    │  ← 查询是否已有订单
+        │  2. 扣减DB库存        │  ← UPDATE ... WHERE stock > 0
+        │  3. 创建秒杀订单      │  ← 雪花算法生成订单ID
+        └───────────────────────┘
+```
+
+### 核心设计
+
+| 特性 | 实现方式 |
+|------|---------|
+| **削峰填谷** | Kafka消息队列异步处理，前端立即返回 |
+| **库存预减** | Redis DECR 原子操作，毫秒级判断库存是否充足 |
+| **幂等性** | Redis SETNX 防重 + DB唯一索引(user_id, product_id)双重校验 |
+| **防超卖** | Redis预减 + DB层 `WHERE stock > 0` 乐观锁 |
+| **订单ID** | 雪花算法（SnowflakeIdGenerator），支持分布式唯一ID |
+| **数据一致性** | Kafka消费者事务内完成扣库存+创建订单 |
+
+### 雪花算法ID结构
+```
+0 | 41位时间戳 | 5位数据中心ID | 5位机器ID | 12位序列号
+```
+- 两个后端实例使用不同的 `SNOWFLAKE_WORKER_ID`（1和2），保证ID不冲突
 
 ## 快速启动
 
@@ -154,17 +206,19 @@ docker compose ps
 docker compose logs -f
 ```
 
-启动后的服务：
+启动后的服务（共9个容器）：
 
 | 服务 | 地址 | 说明 |
 |------|------|------|
-| 前端页面 | http://localhost | Nginx代理 |
-| 后端实例1 | http://localhost:8081 | Spring Boot |
-| 后端实例2 | http://localhost:8082 | Spring Boot |
+| Nginx | http://localhost | 前端入口 + 反向代理 |
+| 后端实例1 | http://localhost:8081 | Spring Boot (worker=1) |
+| 后端实例2 | http://localhost:8082 | Spring Boot (worker=2) |
 | MySQL主库 | localhost:3307 | 写操作 |
 | MySQL从库 | localhost:3308 | 读操作 |
-| Redis | localhost:6380 | 缓存 |
-| ElasticSearch | http://localhost:9200 | 搜索 |
+| Redis | localhost:6380 | 缓存 + 库存 |
+| ElasticSearch | http://localhost:9200 | 搜索引擎 |
+| Kafka | localhost:9092 | 消息队列 |
+| Zookeeper | localhost:2181 | Kafka协调 |
 
 ### 启动后操作
 
@@ -175,16 +229,23 @@ curl -X POST http://localhost/api/search/sync
 # 2. 搜索测试
 curl http://localhost/api/search?keyword=iPhone
 
-# 3. 读写分离测试（查看后端日志确认主从切换）
+# 3. 读写分离测试
 curl http://localhost/api/product/rw-test
 
-# 4. 负载均衡测试
+# 4. 秒杀测试（需要先注册登录获取userId）
+curl -X POST "http://localhost/api/seckill/1?userId=1"
+
+# 5. 查询订单
+curl "http://localhost/api/seckill/orders?userId=1"
+
+# 6. 负载均衡测试
 for i in $(seq 1 10); do curl -s http://localhost/api/product/port; echo; done
 ```
 
 ## JMeter 压测建议
 
-1. **负载均衡验证**：压测 `GET http://localhost/api/product/port`，检查后端日志验证请求分布
-2. **动静分离对比**：分别压测 `GET http://localhost/css/style.css` 和 `GET http://localhost/api/product/list`，对比响应时间
-3. **缓存效果**：压测 `GET http://localhost/api/product/1`，对比 Redis 命中和未命中的响应时间
-4. **ES搜索性能**：压测 `GET http://localhost/api/search?keyword=iPhone`
+1. **秒杀并发测试**：100个线程同时对 `POST /api/seckill/1?userId={threadNum}` 发请求，验证不超卖
+2. **负载均衡验证**：压测 `GET /api/product/port`，验证请求均匀分布
+3. **动静分离对比**：分别压测 `/css/style.css` 和 `/api/product/list`，对比响应时间
+4. **缓存效果**：压测 `GET /api/product/1`，对比 Redis 命中/未命中响应时间
+5. **ES搜索性能**：压测 `GET /api/search?keyword=iPhone`

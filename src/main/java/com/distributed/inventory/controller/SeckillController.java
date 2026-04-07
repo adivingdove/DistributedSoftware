@@ -1,0 +1,50 @@
+package com.distributed.inventory.controller;
+
+import com.distributed.inventory.common.Result;
+import com.distributed.inventory.entity.SeckillOrder;
+import com.distributed.inventory.service.SeckillService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/seckill")
+public class SeckillController {
+
+    @Autowired
+    private SeckillService seckillService;
+
+    @PostMapping("/{productId}")
+    public Result<Map<String, Object>> seckill(
+            @PathVariable Long productId,
+            @RequestParam Long userId) {
+        Long orderId = seckillService.seckill(userId, productId);
+        Map<String, Object> data = new HashMap<>();
+        data.put("orderId", String.valueOf(orderId));
+        data.put("message", "秒杀请求已提交，订单处理中");
+        return Result.success(data);
+    }
+
+    @GetMapping("/order/{orderId}")
+    public Result<SeckillOrder> getOrder(@PathVariable Long orderId) {
+        SeckillOrder order = seckillService.getOrderById(orderId);
+        if (order == null) {
+            return Result.error(404, "订单不存在或正在处理中");
+        }
+        return Result.success(order);
+    }
+
+    @GetMapping("/orders")
+    public Result<List<SeckillOrder>> getOrders(@RequestParam Long userId) {
+        return Result.success(seckillService.getOrdersByUserId(userId));
+    }
+
+    @PostMapping("/init-stock")
+    public Result<Void> initStock() {
+        seckillService.initStockToRedis();
+        return Result.success();
+    }
+}

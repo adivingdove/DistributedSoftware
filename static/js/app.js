@@ -3,6 +3,7 @@ var API_BASE = '/api';
 document.addEventListener('DOMContentLoaded', function() {
     loadProducts();
     checkLoginStatus();
+    loadOrders();
 
     document.getElementById('tab-login').addEventListener('click', function() {
         switchTab('login');
@@ -82,8 +83,10 @@ function handleLogin() {
         if (data.code === 200) {
             localStorage.setItem('token', data.data.token);
             localStorage.setItem('username', data.data.username);
+            localStorage.setItem('userId', data.data.userId);
             showMessage('登录成功！', 'success');
             checkLoginStatus();
+            loadOrders();
         } else {
             showMessage(data.message || '登录失败', 'error');
         }
@@ -145,6 +148,7 @@ function checkLoginStatus() {
 function logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('username');
+    localStorage.removeItem('userId');
     location.reload();
 }
 
@@ -160,6 +164,7 @@ function loadProducts() {
                     '<p class="description">' + (p.description || '') + '</p>' +
                     '<p class="price">\u00a5' + p.price + '</p>' +
                     '<p class="stock">库存: ' + p.stock + '</p>' +
+                    '<button class="btn btn-seckill" onclick="doSeckill(' + p.id + ')">秒杀抢购</button>' +
                 '</div>';
             }).join('');
         } else {
@@ -233,5 +238,56 @@ function syncToES() {
         btn.textContent = '同步数据到ES';
         btn.disabled = false;
         alert('同步请求失败，请确认ES服务已启动');
+    });
+}
+
+function doSeckill(productId) {
+    var userId = localStorage.getItem('userId');
+    if (!userId) {
+        alert('请先登录后再参与秒杀');
+        return;
+    }
+    fetch(API_BASE + '/seckill/' + productId + '?userId=' + userId, { method: 'POST' })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.code === 200) {
+            alert('秒杀成功！订单号: ' + data.data.orderId);
+            loadProducts();
+            loadOrders();
+        } else {
+            alert(data.message || '秒杀失败');
+        }
+    })
+    .catch(function() {
+        alert('网络错误');
+    });
+}
+
+function loadOrders() {
+    var userId = localStorage.getItem('userId');
+    if (!userId) return;
+
+    var container = document.getElementById('order-list');
+    if (!container) return;
+
+    fetch(API_BASE + '/seckill/orders?userId=' + userId)
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.code === 200 && data.data && data.data.length > 0) {
+            container.innerHTML = '<table class="order-table"><thead><tr>' +
+                '<th>订单号</th><th>商品</th><th>价格</th><th>状态</th><th>时间</th>' +
+                '</tr></thead><tbody>' +
+                data.data.map(function(o) {
+                    var statusText = o.status === 0 ? '待支付' : o.status === 1 ? '已支付' : '已取消';
+                    return '<tr><td>' + o.id + '</td><td>' + (o.productName || '') +
+                        '</td><td>\u00a5' + o.price + '</td><td>' + statusText +
+                        '</td><td>' + (o.createTime || '') + '</td></tr>';
+                }).join('') + '</tbody></table>';
+        } else {
+            container.innerHTML = '<p>暂无订单</p>';
+        }
+    })
+    .catch(function() {
+        container.innerHTML = '<p>加载订单失败</p>';
     });
 }
