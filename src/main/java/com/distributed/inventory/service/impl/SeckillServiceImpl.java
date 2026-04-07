@@ -6,6 +6,7 @@ import com.distributed.inventory.entity.Product;
 import com.distributed.inventory.entity.SeckillOrder;
 import com.distributed.inventory.mapper.ProductMapper;
 import com.distributed.inventory.mapper.SeckillOrderMapper;
+import com.distributed.inventory.mapper.order.ShardingSeckillOrderMapper;
 import com.distributed.inventory.service.SeckillService;
 import com.distributed.inventory.util.SnowflakeIdGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -14,7 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -32,13 +32,16 @@ public class SeckillServiceImpl implements SeckillService {
     private StringRedisTemplate stringRedisTemplate;
 
     @Autowired
-    private KafkaTemplate<String, String> kafkaTemplate;
+    private ReliableMessageService reliableMessageService;
 
     @Autowired
     private ProductMapper productMapper;
 
     @Autowired
     private SeckillOrderMapper seckillOrderMapper;
+
+    @Autowired
+    private ShardingSeckillOrderMapper shardingSeckillOrderMapper;
 
     @Autowired
     private SnowflakeIdGenerator snowflakeIdGenerator;
@@ -82,8 +85,10 @@ public class SeckillServiceImpl implements SeckillService {
         SeckillMessage message = new SeckillMessage(userId, productId, orderId);
         try {
             String json = objectMapper.writeValueAsString(message);
-            kafkaTemplate.send("seckill-order", String.valueOf(productId), json);
-            log.info("[秒杀] 消息已发送 userId={}, productId={}, orderId={}", userId, productId, orderId);
+            String messageId = reliableMessageService.saveAndSendMessage(
+                    "seckill-order", String.valueOf(productId), json);
+            log.info("[秒杀] 可靠消息已发送 userId={}, productId={}, orderId={}, messageId={}",
+                    userId, productId, orderId, messageId);
         } catch (JsonProcessingException e) {
             stringRedisTemplate.opsForValue().increment(stockKey);
             stringRedisTemplate.delete(orderFlag);
@@ -103,5 +108,15 @@ public class SeckillServiceImpl implements SeckillService {
     @ReadOnly
     public List<SeckillOrder> getOrdersByUserId(Long userId) {
         return seckillOrderMapper.selectByUserId(userId);
+    }
+
+    @Override
+    public SeckillOrder getShardingOrderById(Long orderId) {
+        return shardingSeckillOrderMapper.selectById(orderId);
+    }
+
+    @Override
+    public List<SeckillOrder> getShardingOrdersByUserId(Long userId) {
+        return shardingSeckillOrderMapper.selectByUserId(userId);
     }
 }

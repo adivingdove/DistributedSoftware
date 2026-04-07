@@ -1,25 +1,34 @@
 var API_BASE = '/api';
 
 document.addEventListener('DOMContentLoaded', function() {
-    loadProducts();
     checkLoginStatus();
+    loadProducts();
     loadOrders();
+    loadShardingOrders();
 
-    document.getElementById('tab-login').addEventListener('click', function() {
-        switchTab('login');
-    });
-    document.getElementById('tab-register').addEventListener('click', function() {
-        switchTab('register');
-    });
+    var tabLogin = document.getElementById('tab-login');
+    var tabRegister = document.getElementById('tab-register');
+    var loginForm = document.getElementById('login-form');
+    var registerForm = document.getElementById('register-form');
 
-    document.getElementById('login-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        handleLogin();
-    });
-    document.getElementById('register-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        handleRegister();
-    });
+    if (tabLogin) {
+        tabLogin.addEventListener('click', function() { switchTab('login'); });
+    }
+    if (tabRegister) {
+        tabRegister.addEventListener('click', function() { switchTab('register'); });
+    }
+    if (loginForm) {
+        loginForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            handleLogin();
+        });
+    }
+    if (registerForm) {
+        registerForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            handleRegister();
+        });
+    }
 
     document.getElementById('btn-check-server').addEventListener('click', function() {
         checkServer();
@@ -43,6 +52,8 @@ function switchTab(tab) {
     var registerForm = document.getElementById('register-form');
     var msg = document.getElementById('auth-msg');
 
+    if (!tabLogin || !tabRegister) return;
+
     msg.textContent = '';
 
     if (tab === 'login') {
@@ -60,6 +71,7 @@ function switchTab(tab) {
 
 function showMessage(text, type) {
     var msg = document.getElementById('auth-msg');
+    if (!msg) return;
     msg.className = 'message ' + type;
     msg.textContent = text;
 }
@@ -83,10 +95,9 @@ function handleLogin() {
         if (data.code === 200) {
             localStorage.setItem('token', data.data.token);
             localStorage.setItem('username', data.data.username);
-            localStorage.setItem('userId', data.data.userId);
+            localStorage.setItem('userId', String(data.data.userId));
             showMessage('登录成功！', 'success');
-            checkLoginStatus();
-            loadOrders();
+            setTimeout(function() { location.reload(); }, 500);
         } else {
             showMessage(data.message || '登录失败', 'error');
         }
@@ -138,10 +149,14 @@ function checkLoginStatus() {
             e.preventDefault();
             logout();
         });
-        authSection.innerHTML = '<p style="text-align:center;color:#28a745;font-size:16px;">已登录为 <strong>' + username + '</strong></p>';
+        if (authSection) {
+            authSection.style.display = 'none';
+        }
     } else {
         info.textContent = '';
-        authSection.style.display = '';
+        if (authSection) {
+            authSection.style.display = '';
+        }
     }
 }
 
@@ -187,29 +202,29 @@ function checkServer() {
     });
 }
 
-function renderProductCards(products, containerId) {
-    var container = document.getElementById(containerId);
-    if (products && products.length > 0) {
-        container.innerHTML = products.map(function(p) {
-            return '<div class="product-card">' +
-                '<h3>' + p.name + '</h3>' +
-                '<p class="description">' + (p.description || '') + '</p>' +
-                '<p class="price">\u00a5' + p.price + '</p>' +
-                '<p class="stock">库存: ' + p.stock + '</p>' +
-            '</div>';
-        }).join('');
-    } else {
-        container.innerHTML = '<p>暂无数据</p>';
-    }
-}
-
 function searchProducts() {
     var keyword = document.getElementById('search-input').value.trim();
+    if (!keyword) {
+        document.getElementById('search-results').innerHTML = '<p style="color:#666;">请输入搜索关键词</p>';
+        return;
+    }
+    document.getElementById('search-results').innerHTML = '<p>搜索中...</p>';
     fetch(API_BASE + '/search?keyword=' + encodeURIComponent(keyword))
     .then(function(res) { return res.json(); })
     .then(function(data) {
-        if (data.code === 200) {
-            renderProductCards(data.data, 'search-results');
+        if (data.code === 200 && data.data && data.data.length > 0) {
+            document.getElementById('search-results').innerHTML =
+                '<p style="margin-bottom:12px;color:#28a745;font-weight:bold;">🔍 找到 ' + data.data.length + ' 条与"' + keyword + '"相关的结果（来自 ElasticSearch）</p>' +
+                data.data.map(function(p) {
+                    return '<div class="product-card" style="border-left:4px solid #667eea;">' +
+                        '<h3>' + p.name + '</h3>' +
+                        '<p class="description">' + (p.description || '') + '</p>' +
+                        '<p class="price">\u00a5' + p.price + '</p>' +
+                        '<p class="stock">库存: ' + p.stock + '</p>' +
+                    '</div>';
+                }).join('');
+        } else if (data.code === 200) {
+            document.getElementById('search-results').innerHTML = '<p>未找到与"' + keyword + '"相关的商品</p>';
         } else {
             document.getElementById('search-results').innerHTML = '<p>' + (data.message || '搜索失败') + '</p>';
         }
@@ -275,13 +290,20 @@ function loadOrders() {
     .then(function(data) {
         if (data.code === 200 && data.data && data.data.length > 0) {
             container.innerHTML = '<table class="order-table"><thead><tr>' +
-                '<th>订单号</th><th>商品</th><th>价格</th><th>状态</th><th>时间</th>' +
+                '<th>订单号</th><th>商品</th><th>价格</th><th>状态</th><th>时间</th><th>操作</th>' +
                 '</tr></thead><tbody>' +
                 data.data.map(function(o) {
-                    var statusText = o.status === 0 ? '待支付' : o.status === 1 ? '已支付' : '已取消';
+                    var statusText = o.status === 0 ? '待支付' : o.status === 1 ? '已支付' : o.status === 3 ? '支付中' : '已取消';
+                    var actionBtn = '';
+                    if (o.status === 0) {
+                        actionBtn = '<button class="btn btn-seckill" onclick="payOrder(\'' + o.id + '\')">支付</button>';
+                    } else if (o.status === 3) {
+                        actionBtn = '<button class="btn btn-primary" onclick="confirmPayOrder(\'' + o.id + '\')">确认</button> ' +
+                                    '<button class="btn btn-secondary" onclick="cancelPayOrder(\'' + o.id + '\')">取消</button>';
+                    }
                     return '<tr><td>' + o.id + '</td><td>' + (o.productName || '') +
                         '</td><td>\u00a5' + o.price + '</td><td>' + statusText +
-                        '</td><td>' + (o.createTime || '') + '</td></tr>';
+                        '</td><td>' + (o.createTime || '') + '</td><td>' + actionBtn + '</td></tr>';
                 }).join('') + '</tbody></table>';
         } else {
             container.innerHTML = '<p>暂无订单</p>';
@@ -290,4 +312,86 @@ function loadOrders() {
     .catch(function() {
         container.innerHTML = '<p>加载订单失败</p>';
     });
+}
+
+function loadShardingOrders() {
+    var userId = localStorage.getItem('userId');
+    if (!userId) return;
+
+    var container = document.getElementById('sharding-order-list');
+    if (!container) return;
+
+    fetch(API_BASE + '/seckill/sharding/orders?userId=' + userId)
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.code === 200 && data.data && data.data.length > 0) {
+            container.innerHTML = '<table class="order-table"><thead><tr>' +
+                '<th>订单号</th><th>商品</th><th>价格</th><th>状态</th><th>时间</th><th>分片库</th>' +
+                '</tr></thead><tbody>' +
+                data.data.map(function(o) {
+                    var statusText = o.status === 0 ? '待支付' : o.status === 1 ? '已支付' : '已取消';
+                    return '<tr><td>' + o.id + '</td><td>' + (o.productName || '') +
+                        '</td><td>\u00a5' + o.price + '</td><td>' + statusText +
+                        '</td><td>' + (o.createTime || '') + '</td><td>ds' + (o.userId % 2) + '</td></tr>';
+                }).join('') + '</tbody></table>';
+        } else {
+            container.innerHTML = '<p>暂无分片订单</p>';
+        }
+    })
+    .catch(function() {
+        container.innerHTML = '<p>加载分片订单失败</p>';
+    });
+}
+
+var pendingTxIds = {};
+
+function payOrder(orderId) {
+    var userId = localStorage.getItem('userId');
+    if (!userId) { alert('请先登录'); return; }
+    fetch(API_BASE + '/payment/try?orderId=' + orderId + '&userId=' + userId, { method: 'POST' })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.code === 200) {
+            pendingTxIds[orderId] = data.data.txId;
+            alert('支付预处理成功（TCC-Try），请确认或取消支付。事务ID: ' + data.data.txId);
+            loadOrders();
+        } else {
+            alert(data.message || '支付预处理失败');
+        }
+    })
+    .catch(function() { alert('网络错误'); });
+}
+
+function confirmPayOrder(orderId) {
+    var txId = pendingTxIds[orderId];
+    if (!txId) { alert('事务信息丢失，请刷新页面重试'); return; }
+    fetch(API_BASE + '/payment/confirm?txId=' + txId, { method: 'POST' })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.code === 200) {
+            delete pendingTxIds[orderId];
+            alert('支付确认成功（TCC-Confirm）！');
+            loadOrders();
+        } else {
+            alert(data.message || '支付确认失败');
+        }
+    })
+    .catch(function() { alert('网络错误'); });
+}
+
+function cancelPayOrder(orderId) {
+    var txId = pendingTxIds[orderId];
+    if (!txId) { alert('事务信息丢失，请刷新页面重试'); return; }
+    fetch(API_BASE + '/payment/cancel?txId=' + txId, { method: 'POST' })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.code === 200) {
+            delete pendingTxIds[orderId];
+            alert('支付已取消（TCC-Cancel），订单恢复待支付状态');
+            loadOrders();
+        } else {
+            alert(data.message || '取消支付失败');
+        }
+    })
+    .catch(function() { alert('网络错误'); });
 }

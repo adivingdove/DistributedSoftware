@@ -13,4 +13,8 @@ public interface SeckillService {
     List<SeckillOrder> getOrdersByUserId(Long userId);
 
     void initStockToRedis();
+
+    SeckillOrder getShardingOrderById(Long orderId);
+
+    List<SeckillOrder> getShardingOrdersByUserId(Long userId);
 }

@@ -47,4 +47,18 @@ public class SeckillController {
         seckillService.initStockToRedis();
         return Result.success();
     }
+
+    @GetMapping("/sharding/order/{orderId}")
+    public Result<SeckillOrder> getShardingOrder(@PathVariable Long orderId) {
+        SeckillOrder order = seckillService.getShardingOrderById(orderId);
+        if (order == null) {
+            return Result.error(404, "分片库中订单不存在");
+        }
+        return Result.success(order);
+    }
+
+    @GetMapping("/sharding/orders")
+    public Result<List<SeckillOrder>> getShardingOrders(@RequestParam Long userId) {
+        return Result.success(seckillService.getShardingOrdersByUserId(userId));
+    }
 }

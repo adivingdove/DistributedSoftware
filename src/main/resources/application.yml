@@ -14,6 +14,14 @@ spring:
       url: jdbc:mysql://${MYSQL_SLAVE_HOST:localhost}:${MYSQL_SLAVE_PORT:3307}/inventory_seckill?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
       username: ${MYSQL_USER:root}
       password: ${MYSQL_PASSWORD:minatoaqua3710}
+    shard0:
+      url: jdbc:mysql://${MYSQL_SHARD0_HOST:localhost}:${MYSQL_SHARD0_PORT:3309}/seckill_order_0?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      username: ${MYSQL_USER:root}
+      password: ${MYSQL_PASSWORD:minatoaqua3710}
+    shard1:
+      url: jdbc:mysql://${MYSQL_SHARD1_HOST:localhost}:${MYSQL_SHARD1_PORT:3310}/seckill_order_1?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      username: ${MYSQL_USER:root}
+      password: ${MYSQL_PASSWORD:minatoaqua3710}
 
   redis:
     host: ${REDIS_HOST:localhost}

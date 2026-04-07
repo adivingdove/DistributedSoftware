@@ -1,10 +1,13 @@
 package com.distributed.inventory.config;
 
 import com.alibaba.druid.pool.DruidDataSource;
+import org.apache.ibatis.session.SqlSessionFactory;
+import org.mybatis.spring.SqlSessionFactoryBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
 import javax.sql.DataSource;
 import java.sql.SQLException;
@@ -55,5 +58,21 @@ public class DataSourceConfig {
         dynamicDataSource.setTargetDataSources(targetDataSources);
         dynamicDataSource.setDefaultTargetDataSource(masterDs);
         return dynamicDataSource;
+    }
+
+    @Bean("primarySqlSessionFactory")
+    @Primary
+    public SqlSessionFactory primarySqlSessionFactory() throws Exception {
+        SqlSessionFactoryBean factoryBean = new SqlSessionFactoryBean();
+        factoryBean.setDataSource(dataSource());
+        factoryBean.setMapperLocations(
+                new PathMatchingResourcePatternResolver()
+                        .getResources("classpath:mapper/*.xml"));
+        factoryBean.setTypeAliasesPackage("com.distributed.inventory.entity");
+        org.apache.ibatis.session.Configuration config = new org.apache.ibatis.session.Configuration();
+        config.setMapUnderscoreToCamelCase(true);
+        config.setLogImpl(org.apache.ibatis.logging.stdout.StdOutImpl.class);
+        factoryBean.setConfiguration(config);
+        return factoryBean.getObject();
     }
 }

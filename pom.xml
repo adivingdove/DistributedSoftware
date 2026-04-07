@@ -20,6 +20,7 @@
     
     <properties>
         <java.version>11</java.version>
+        <snakeyaml.version>1.33</snakeyaml.version>
         <mybatis-spring-boot.version>2.3.2</mybatis-spring-boot.version>
         <druid.version>1.2.20</druid.version>
         <jwt.version>0.11.5</jwt.version>
@@ -86,6 +87,12 @@
         <dependency>
             <groupId>org.springframework.kafka</groupId>
             <artifactId>spring-kafka</artifactId>
+        </dependency>
+        
+        <dependency>
+            <groupId>org.apache.shardingsphere</groupId>
+            <artifactId>shardingsphere-jdbc-core</artifactId>
+            <version>5.2.1</version>
         </dependency>
         
         <dependency>

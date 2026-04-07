@@ -47,6 +47,44 @@ services:
     networks:
       - seckill-net
 
+  mysql-shard0:
+    image: mysql:8.0
+    container_name: seckill-mysql-shard0
+    environment:
+      MYSQL_ROOT_PASSWORD: minatoaqua3710
+    ports:
+      - "3309:3306"
+    volumes:
+      - mysql-shard0-data:/var/lib/mysql
+      - ./mysql/init-shard-0.sql:/docker-entrypoint-initdb.d/init.sql
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --server-id=3
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pminatoaqua3710"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - seckill-net
+
+  mysql-shard1:
+    image: mysql:8.0
+    container_name: seckill-mysql-shard1
+    environment:
+      MYSQL_ROOT_PASSWORD: minatoaqua3710
+    ports:
+      - "3310:3306"
+    volumes:
+      - mysql-shard1-data:/var/lib/mysql
+      - ./mysql/init-shard-1.sql:/docker-entrypoint-initdb.d/init.sql
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --server-id=4
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pminatoaqua3710"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - seckill-net
+
   redis:
     image: redis:7-alpine
     container_name: seckill-redis
@@ -128,6 +166,10 @@ services:
       MYSQL_MASTER_PORT: 3306
       MYSQL_SLAVE_HOST: mysql-slave
       MYSQL_SLAVE_PORT: 3306
+      MYSQL_SHARD0_HOST: mysql-shard0
+      MYSQL_SHARD0_PORT: 3306
+      MYSQL_SHARD1_HOST: mysql-shard1
+      MYSQL_SHARD1_PORT: 3306
       MYSQL_USER: root
       MYSQL_PASSWORD: minatoaqua3710
       REDIS_HOST: redis
@@ -143,6 +185,10 @@ services:
       mysql-master:
         condition: service_healthy
       mysql-slave:
+        condition: service_healthy
+      mysql-shard0:
+        condition: service_healthy
+      mysql-shard1:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -162,6 +208,10 @@ services:
       MYSQL_MASTER_PORT: 3306
       MYSQL_SLAVE_HOST: mysql-slave
       MYSQL_SLAVE_PORT: 3306
+      MYSQL_SHARD0_HOST: mysql-shard0
+      MYSQL_SHARD0_PORT: 3306
+      MYSQL_SHARD1_HOST: mysql-shard1
+      MYSQL_SHARD1_PORT: 3306
       MYSQL_USER: root
       MYSQL_PASSWORD: minatoaqua3710
       REDIS_HOST: redis
@@ -177,6 +227,10 @@ services:
       mysql-master:
         condition: service_healthy
       mysql-slave:
+        condition: service_healthy
+      mysql-shard0:
+        condition: service_healthy
+      mysql-shard1:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -204,6 +258,8 @@ services:
 volumes:
   mysql-master-data:
   mysql-slave-data:
+  mysql-shard0-data:
+  mysql-shard1-data:
   redis-data:
   es-data:
 

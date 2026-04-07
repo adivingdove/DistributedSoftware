@@ -1,4 +1,4 @@
-package com.distributed.inventory.mapper;
+package com.distributed.inventory.mapper.order;
 
 import com.distributed.inventory.entity.SeckillOrder;
 import org.apache.ibatis.annotations.Mapper;
@@ -7,7 +7,7 @@ import org.apache.ibatis.annotations.Param;
 import java.util.List;
 
 @Mapper
-public interface SeckillOrderMapper {
+public interface ShardingSeckillOrderMapper {
 
     int insert(SeckillOrder order);
 
@@ -16,10 +16,4 @@ public interface SeckillOrderMapper {
     List<SeckillOrder> selectByUserId(@Param("userId") Long userId);
 
     SeckillOrder selectByUserIdAndProductId(@Param("userId") Long userId, @Param("productId") Long productId);
-
-    int deductStock(@Param("productId") Long productId);
-
-    int updateOrderStatus(@Param("id") Long id, @Param("status") Integer status);
-
-    int restoreStock(@Param("productId") Long productId);
 }

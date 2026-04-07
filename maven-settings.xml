@@ -1,0 +1,10 @@
+<settings>
+    <mirrors>
+        <mirror>
+            <id>aliyun</id>
+            <mirrorOf>central</mirrorOf>
+            <name>Alibaba Cloud Maven Mirror</name>
+            <url>https://maven.aliyun.com/repository/public</url>
+        </mirror>
+    </mirrors>
+</settings>
