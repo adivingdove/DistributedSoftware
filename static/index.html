@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>商品库存与秒杀系统</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <div class="logo">🛒 秒杀商城</div>
+            <div class="nav-links">
+                <a href="/">首页</a>
+                <span id="user-info"></span>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container">
+        <section class="hero">
+            <h1>商品库存与秒杀系统</h1>
+            <p>高并发、高可用的分布式秒杀平台</p>
+        </section>
+
+        <section class="auth-section" id="auth-section">
+            <div class="auth-tabs">
+                <button class="tab-btn active" id="tab-login" type="button">登录</button>
+                <button class="tab-btn" id="tab-register" type="button">注册</button>
+            </div>
+            <form id="login-form" class="auth-form">
+                <input type="text" id="login-username" placeholder="用户名" required>
+                <input type="password" id="login-password" placeholder="密码" required>
+                <button type="submit" class="btn btn-primary">登录</button>
+            </form>
+            <form id="register-form" class="auth-form" style="display:none;">
+                <input type="text" id="reg-username" placeholder="用户名" required>
+                <input type="password" id="reg-password" placeholder="密码" required>
+                <input type="tel" id="reg-phone" placeholder="手机号（如13800138000）" required>
+                <button type="submit" class="btn btn-primary">注册</button>
+            </form>
+            <div id="auth-msg" class="message"></div>
+        </section>
+
+        <section class="product-section">
+            <h2>🔥 热门商品</h2>
+            <div id="product-list" class="product-grid"></div>
+        </section>
+
+        <section class="server-info">
+            <h3>服务器信息</h3>
+            <button class="btn btn-secondary" type="button" id="btn-check-server">检测当前处理节点</button>
+            <p id="server-port" class="port-info"></p>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 商品库存与秒杀系统 - 分布式软件课程作业</p>
+    </footer>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>
