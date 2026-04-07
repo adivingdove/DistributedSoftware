@@ -1,5 +1,6 @@
 package com.distributed.inventory.service.impl;
 
+import com.distributed.inventory.config.ReadOnly;
 import com.distributed.inventory.entity.Product;
 import com.distributed.inventory.mapper.ProductMapper;
 import com.distributed.inventory.service.ProductService;
@@ -31,6 +32,7 @@ public class ProductServiceImpl implements ProductService {
     private ObjectMapper objectMapper;
 
     @Override
+    @ReadOnly
     public Product getById(Long id) {
         String cacheKey = PRODUCT_CACHE_KEY + id;
 
@@ -96,6 +98,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @ReadOnly
     public List<Product> listAll() {
         return productMapper.selectAll();
     }

@@ -137,6 +137,37 @@ body {
 .message.success { color: #28a745; }
 .message.error { color: #dc3545; }
 
+.search-section {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 30px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.search-section h2 {
+    margin-bottom: 15px;
+    font-size: 24px;
+}
+
+.search-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.search-bar input {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 16px;
+}
+
+.search-bar .btn {
+    white-space: nowrap;
+}
+
 .product-section {
     margin-bottom: 30px;
 }

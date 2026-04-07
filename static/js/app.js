@@ -23,6 +23,16 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btn-check-server').addEventListener('click', function() {
         checkServer();
     });
+
+    document.getElementById('btn-search').addEventListener('click', function() {
+        searchProducts();
+    });
+    document.getElementById('search-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') searchProducts();
+    });
+    document.getElementById('btn-sync-es').addEventListener('click', function() {
+        syncToES();
+    });
 });
 
 function switchTab(tab) {
@@ -169,5 +179,59 @@ function checkServer() {
     })
     .catch(function() {
         document.getElementById('server-port').textContent = '请求失败';
+    });
+}
+
+function renderProductCards(products, containerId) {
+    var container = document.getElementById(containerId);
+    if (products && products.length > 0) {
+        container.innerHTML = products.map(function(p) {
+            return '<div class="product-card">' +
+                '<h3>' + p.name + '</h3>' +
+                '<p class="description">' + (p.description || '') + '</p>' +
+                '<p class="price">\u00a5' + p.price + '</p>' +
+                '<p class="stock">库存: ' + p.stock + '</p>' +
+            '</div>';
+        }).join('');
+    } else {
+        container.innerHTML = '<p>暂无数据</p>';
+    }
+}
+
+function searchProducts() {
+    var keyword = document.getElementById('search-input').value.trim();
+    fetch(API_BASE + '/search?keyword=' + encodeURIComponent(keyword))
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.code === 200) {
+            renderProductCards(data.data, 'search-results');
+        } else {
+            document.getElementById('search-results').innerHTML = '<p>' + (data.message || '搜索失败') + '</p>';
+        }
+    })
+    .catch(function() {
+        document.getElementById('search-results').innerHTML = '<p>搜索请求失败，请确认ES服务已启动</p>';
+    });
+}
+
+function syncToES() {
+    var btn = document.getElementById('btn-sync-es');
+    btn.textContent = '同步中...';
+    btn.disabled = true;
+    fetch(API_BASE + '/search/sync', { method: 'POST' })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        btn.textContent = '同步数据到ES';
+        btn.disabled = false;
+        if (data.code === 200) {
+            alert('同步成功！现在可以搜索商品了');
+        } else {
+            alert('同步失败: ' + (data.message || ''));
+        }
+    })
+    .catch(function() {
+        btn.textContent = '同步数据到ES';
+        btn.disabled = false;
+        alert('同步请求失败，请确认ES服务已启动');
     });
 }

@@ -42,6 +42,16 @@
             <div id="auth-msg" class="message"></div>
         </section>
 
+        <section class="search-section">
+            <h2>🔍 商品搜索（ElasticSearch）</h2>
+            <div class="search-bar">
+                <input type="text" id="search-input" placeholder="搜索商品名称或描述...">
+                <button class="btn btn-primary" type="button" id="btn-search">搜索</button>
+                <button class="btn btn-secondary" type="button" id="btn-sync-es">同步数据到ES</button>
+            </div>
+            <div id="search-results" class="product-grid"></div>
+        </section>
+
         <section class="product-section">
             <h2>🔥 热门商品</h2>
             <div id="product-list" class="product-grid"></div>
