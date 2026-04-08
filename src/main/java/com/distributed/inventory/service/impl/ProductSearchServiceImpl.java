@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -25,6 +26,15 @@ public class ProductSearchServiceImpl implements ProductSearchService {
 
     @Autowired
     private ProductSearchRepository productSearchRepository;
+
+    @PostConstruct
+    public void init() {
+        try {
+            syncAll();
+        } catch (Exception e) {
+            log.warn("[ES同步] 启动时自动同步失败（ES可能未就绪）: {}", e.getMessage());
+        }
+    }
 
     @Override
     @ReadOnly

@@ -4,10 +4,12 @@ import com.distributed.inventory.entity.SeckillOrder;
 import com.distributed.inventory.entity.TccTransaction;
 import com.distributed.inventory.mapper.SeckillOrderMapper;
 import com.distributed.inventory.mapper.TccTransactionMapper;
+import com.distributed.inventory.mapper.order.ShardingSeckillOrderMapper;
 import com.distributed.inventory.service.TccOrderService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,11 +22,19 @@ public class TccOrderServiceImpl implements TccOrderService {
 
     private static final Logger log = LoggerFactory.getLogger(TccOrderServiceImpl.class);
 
+    private static final String ORDER_FLAG_KEY = "seckill:order:";
+
     @Autowired
     private SeckillOrderMapper seckillOrderMapper;
 
     @Autowired
+    private ShardingSeckillOrderMapper shardingSeckillOrderMapper;
+
+    @Autowired
     private TccTransactionMapper tccTransactionMapper;
+
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
 
     @Override
     @Transactional
@@ -43,6 +53,11 @@ public class TccOrderServiceImpl implements TccOrderService {
         String txId = UUID.randomUUID().toString().replace("-", "");
 
         seckillOrderMapper.updateOrderStatus(orderId, 3);
+        try {
+            shardingSeckillOrderMapper.updateOrderStatus(orderId, 3);
+        } catch (Exception e) {
+            log.warn("[TCC-Try] 分片库状态同步失败（不影响主流程）: {}", e.getMessage());
+        }
         log.info("[TCC-Try] 订单已冻结 orderId={}, txId={}", orderId, txId);
 
         TccTransaction tx = new TccTransaction();
@@ -76,6 +91,18 @@ public class TccOrderServiceImpl implements TccOrderService {
         }
 
         seckillOrderMapper.updateOrderStatus(tx.getOrderId(), 1);
+        try {
+            shardingSeckillOrderMapper.updateOrderStatus(tx.getOrderId(), 1);
+        } catch (Exception e) {
+            log.warn("[TCC-Confirm] 分片库状态同步失败（不影响主流程）: {}", e.getMessage());
+        }
+
+        SeckillOrder order = seckillOrderMapper.selectById(tx.getOrderId());
+        if (order != null) {
+            String orderFlag = ORDER_FLAG_KEY + order.getUserId() + ":" + order.getProductId();
+            stringRedisTemplate.delete(orderFlag);
+        }
+
         log.info("[TCC-Confirm] 订单支付成功 orderId={}", tx.getOrderId());
 
         tccTransactionMapper.updateStatus(txId, "CONFIRMED");
@@ -98,9 +125,20 @@ public class TccOrderServiceImpl implements TccOrderService {
         }
 
         seckillOrderMapper.updateOrderStatus(tx.getOrderId(), 0);
+        try {
+            shardingSeckillOrderMapper.updateOrderStatus(tx.getOrderId(), 0);
+        } catch (Exception e) {
+            log.warn("[TCC-Cancel] 分片库状态同步失败（不影响主流程）: {}", e.getMessage());
+        }
         log.info("[TCC-Cancel] 订单已恢复待支付 orderId={}", tx.getOrderId());
 
         tccTransactionMapper.updateStatus(txId, "CANCELLED");
         log.info("[TCC-Cancel] 事务已取消 txId={}", txId);
+    }
+
+    @Override
+    public String getTxIdByOrderId(Long orderId) {
+        TccTransaction tx = tccTransactionMapper.selectTryingByOrderId(orderId);
+        return tx != null ? tx.getTxId() : null;
     }
 }

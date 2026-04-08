@@ -9,4 +9,6 @@ public interface TccOrderService {
     void confirmPay(String txId);
 
     void cancelPay(String txId);
+
+    String getTxIdByOrderId(Long orderId);
 }

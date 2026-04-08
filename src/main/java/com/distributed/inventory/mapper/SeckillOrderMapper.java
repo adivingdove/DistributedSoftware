@@ -15,6 +15,10 @@ public interface SeckillOrderMapper {
 
     List<SeckillOrder> selectByUserId(@Param("userId") Long userId);
 
+    List<SeckillOrder> selectByUserIdPaged(@Param("userId") Long userId, @Param("offset") int offset, @Param("size") int size);
+
+    long countByUserId(@Param("userId") Long userId);
+
     SeckillOrder selectByUserIdAndProductId(@Param("userId") Long userId, @Param("productId") Long productId);
 
     int deductStock(@Param("productId") Long productId);
@@ -22,4 +26,6 @@ public interface SeckillOrderMapper {
     int updateOrderStatus(@Param("id") Long id, @Param("status") Integer status);
 
     int restoreStock(@Param("productId") Long productId);
+
+    List<SeckillOrder> selectExpiredOrders(@Param("limit") int limit);
 }

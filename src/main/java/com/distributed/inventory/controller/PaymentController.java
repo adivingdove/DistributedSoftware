@@ -33,4 +33,13 @@ public class PaymentController {
         tccOrderService.cancelPay(txId);
         return Result.success();
     }
+
+    @GetMapping("/tx")
+    public Result<String> getTxId(@RequestParam Long orderId) {
+        String txId = tccOrderService.getTxIdByOrderId(orderId);
+        if (txId == null) {
+            return Result.error(404, "没有进行中的支付事务");
+        }
+        return Result.success(txId);
+    }
 }

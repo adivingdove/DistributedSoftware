@@ -9,17 +9,18 @@
         <result column="product_name" property="productName" jdbcType="VARCHAR"/>
         <result column="price" property="price" jdbcType="DECIMAL"/>
         <result column="status" property="status" jdbcType="TINYINT"/>
+        <result column="expire_time" property="expireTime" jdbcType="TIMESTAMP"/>
         <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
         <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, user_id, product_id, product_name, price, status, create_time, update_time
+        id, user_id, product_id, product_name, price, status, expire_time, create_time, update_time
     </sql>
 
     <insert id="insert" parameterType="com.distributed.inventory.entity.SeckillOrder">
-        INSERT INTO seckill_order (id, user_id, product_id, product_name, price, status, create_time, update_time)
-        VALUES (#{id}, #{userId}, #{productId}, #{productName}, #{price}, #{status}, NOW(), NOW())
+        INSERT INTO seckill_order (id, user_id, product_id, product_name, price, status, expire_time, create_time, update_time)
+        VALUES (#{id}, #{userId}, #{productId}, #{productName}, #{price}, #{status}, #{expireTime}, NOW(), NOW())
     </insert>
 
     <select id="selectById" resultMap="BaseResultMap">
@@ -32,9 +33,20 @@
         FROM seckill_order WHERE user_id = #{userId} ORDER BY create_time DESC
     </select>
 
+    <select id="selectByUserIdPaged" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM seckill_order WHERE user_id = #{userId} ORDER BY create_time DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countByUserId" resultType="long">
+        SELECT COUNT(*) FROM seckill_order WHERE user_id = #{userId}
+    </select>
+
     <select id="selectByUserIdAndProductId" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
-        FROM seckill_order WHERE user_id = #{userId} AND product_id = #{productId}
+        FROM seckill_order WHERE user_id = #{userId} AND product_id = #{productId} AND status IN (0, 3)
+        LIMIT 1
     </select>
 
     <update id="deductStock">
@@ -51,5 +63,12 @@
         UPDATE product SET stock = stock + 1, update_time = NOW()
         WHERE id = #{productId}
     </update>
+
+    <select id="selectExpiredOrders" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM seckill_order
+        WHERE status = 0 AND expire_time IS NOT NULL AND expire_time &lt;= NOW()
+        LIMIT #{limit}
+    </select>
 
 </mapper>

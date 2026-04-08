@@ -97,9 +97,18 @@ public class ProductServiceImpl implements ProductService {
         return product;
     }
 
+    private static final String STOCK_KEY = "seckill:stock:";
+
     @Override
     @ReadOnly
     public List<Product> listAll() {
-        return productMapper.selectAll();
+        List<Product> products = productMapper.selectAll();
+        for (Product p : products) {
+            String stockVal = stringRedisTemplate.opsForValue().get(STOCK_KEY + p.getId());
+            if (stockVal != null) {
+                p.setStock(Integer.parseInt(stockVal));
+            }
+        }
+        return products;
     }
 }

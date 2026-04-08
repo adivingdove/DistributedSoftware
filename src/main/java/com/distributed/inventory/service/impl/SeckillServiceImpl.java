@@ -1,6 +1,7 @@
 package com.distributed.inventory.service.impl;
 
 import com.distributed.inventory.config.ReadOnly;
+import com.distributed.inventory.common.PageResult;
 import com.distributed.inventory.dto.SeckillMessage;
 import com.distributed.inventory.entity.Product;
 import com.distributed.inventory.entity.SeckillOrder;
@@ -16,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.PostConstruct;
 import java.util.List;
@@ -99,15 +101,22 @@ public class SeckillServiceImpl implements SeckillService {
     }
 
     @Override
-    @ReadOnly
     public SeckillOrder getOrderById(Long orderId) {
         return seckillOrderMapper.selectById(orderId);
     }
 
     @Override
-    @ReadOnly
     public List<SeckillOrder> getOrdersByUserId(Long userId) {
         return seckillOrderMapper.selectByUserId(userId);
+    }
+
+    @Override
+    @ReadOnly
+    public PageResult<SeckillOrder> getOrdersByUserIdPaged(Long userId, int page, int size) {
+        long total = seckillOrderMapper.countByUserId(userId);
+        int offset = (page - 1) * size;
+        List<SeckillOrder> records = seckillOrderMapper.selectByUserIdPaged(userId, offset, size);
+        return new PageResult<>(records, total, page, size);
     }
 
     @Override
@@ -118,5 +127,43 @@ public class SeckillServiceImpl implements SeckillService {
     @Override
     public List<SeckillOrder> getShardingOrdersByUserId(Long userId) {
         return shardingSeckillOrderMapper.selectByUserId(userId);
+    }
+
+    @Override
+    public PageResult<SeckillOrder> getShardingOrdersByUserIdPaged(Long userId, int page, int size) {
+        long total = shardingSeckillOrderMapper.countByUserId(userId);
+        int offset = (page - 1) * size;
+        List<SeckillOrder> records = shardingSeckillOrderMapper.selectByUserIdPaged(userId, offset, size);
+        return new PageResult<>(records, total, page, size);
+    }
+
+    @Override
+    @Transactional
+    public void cancelOrder(Long orderId, Long userId) {
+        SeckillOrder order = seckillOrderMapper.selectById(orderId);
+        if (order == null) {
+            throw new RuntimeException("订单不存在");
+        }
+        if (!order.getUserId().equals(userId)) {
+            throw new RuntimeException("无权操作此订单");
+        }
+        if (order.getStatus() != 0) {
+            throw new RuntimeException("仅待支付订单可取消");
+        }
+
+        seckillOrderMapper.updateOrderStatus(orderId, 2);
+        seckillOrderMapper.restoreStock(order.getProductId());
+        try {
+            shardingSeckillOrderMapper.updateOrderStatus(orderId, 2);
+        } catch (Exception e) {
+            log.warn("[取消订单] 分片库状态同步失败: {}", e.getMessage());
+        }
+
+        String stockKey = STOCK_KEY + order.getProductId();
+        stringRedisTemplate.opsForValue().increment(stockKey);
+        String orderFlag = ORDER_FLAG_KEY + userId + ":" + order.getProductId();
+        stringRedisTemplate.delete(orderFlag);
+
+        log.info("[取消订单] 订单已取消 orderId={}, 库存已恢复", orderId);
     }
 }

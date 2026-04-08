@@ -35,4 +35,8 @@
         LIMIT 50
     </select>
 
+    <select id="selectTryingByOrderId" resultMap="BaseResultMap">
+        SELECT * FROM tcc_transaction WHERE order_id = #{orderId} AND status = 'TRYING' LIMIT 1
+    </select>
+
 </mapper>

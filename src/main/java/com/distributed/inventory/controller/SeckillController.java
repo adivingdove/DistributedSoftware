@@ -1,5 +1,6 @@
 package com.distributed.inventory.controller;
 
+import com.distributed.inventory.common.PageResult;
 import com.distributed.inventory.common.Result;
 import com.distributed.inventory.entity.SeckillOrder;
 import com.distributed.inventory.service.SeckillService;
@@ -38,8 +39,11 @@ public class SeckillController {
     }
 
     @GetMapping("/orders")
-    public Result<List<SeckillOrder>> getOrders(@RequestParam Long userId) {
-        return Result.success(seckillService.getOrdersByUserId(userId));
+    public Result<PageResult<SeckillOrder>> getOrders(
+            @RequestParam Long userId,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "5") int size) {
+        return Result.success(seckillService.getOrdersByUserIdPaged(userId, page, size));
     }
 
     @PostMapping("/init-stock")
@@ -58,7 +62,16 @@ public class SeckillController {
     }
 
     @GetMapping("/sharding/orders")
-    public Result<List<SeckillOrder>> getShardingOrders(@RequestParam Long userId) {
-        return Result.success(seckillService.getShardingOrdersByUserId(userId));
+    public Result<PageResult<SeckillOrder>> getShardingOrders(
+            @RequestParam Long userId,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "5") int size) {
+        return Result.success(seckillService.getShardingOrdersByUserIdPaged(userId, page, size));
+    }
+
+    @PostMapping("/cancel")
+    public Result<Void> cancelOrder(@RequestParam Long orderId, @RequestParam Long userId) {
+        seckillService.cancelOrder(orderId, userId);
+        return Result.success();
     }
 }

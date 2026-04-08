@@ -16,4 +16,6 @@ public interface TccTransactionMapper {
     TccTransaction selectByTxId(@Param("txId") String txId);
 
     List<TccTransaction> selectHangingTransactions(@Param("timeoutMinutes") Integer timeoutMinutes);
+
+    TccTransaction selectTryingByOrderId(@Param("orderId") Long orderId);
 }

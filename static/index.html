@@ -3,81 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>商品库存与秒杀系统</title>
+    <title>秒杀系统 | 分布式商品库存平台</title>
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <header>
-        <nav class="navbar">
-            <div class="logo">🛒 秒杀商城</div>
-            <div class="nav-links">
-                <a href="/">首页</a>
-                <span id="user-info"></span>
-            </div>
-        </nav>
-    </header>
 
-    <main class="container">
-        <section class="hero">
-            <h1>商品库存与秒杀系统</h1>
-            <p>高并发、高可用的分布式秒杀平台</p>
-        </section>
+<nav class="navbar">
+    <div class="logo">⚡ 秒杀系统</div>
+    <div class="nav-links">
+        <span id="user-info"></span>
+    </div>
+</nav>
 
-        <section class="auth-section" id="auth-section">
-            <div class="auth-tabs">
-                <button class="tab-btn active" id="tab-login" type="button">登录</button>
-                <button class="tab-btn" id="tab-register" type="button">注册</button>
-            </div>
-            <form id="login-form" class="auth-form">
-                <input type="text" id="login-username" placeholder="用户名" required>
-                <input type="password" id="login-password" placeholder="密码" required>
-                <button type="submit" class="btn btn-primary">登录</button>
-            </form>
-            <form id="register-form" class="auth-form" style="display:none;">
-                <input type="text" id="reg-username" placeholder="用户名" required>
-                <input type="password" id="reg-password" placeholder="密码" required>
-                <input type="tel" id="reg-phone" placeholder="手机号（如13800138000）" required>
-                <button type="submit" class="btn btn-primary">注册</button>
-            </form>
-            <div id="auth-msg" class="message"></div>
-        </section>
+<div class="container">
 
-        <section class="search-section">
-            <h2>🔍 商品搜索（ElasticSearch）</h2>
-            <div class="search-bar">
-                <input type="text" id="search-input" placeholder="搜索商品名称或描述...">
-                <button class="btn btn-primary" type="button" id="btn-search">搜索</button>
-                <button class="btn btn-secondary" type="button" id="btn-sync-es">同步数据到ES</button>
-            </div>
-            <div id="search-results" class="product-grid"></div>
-        </section>
+    <div class="hero">
+        <h1>分布式商品库存与秒杀系统</h1>
+        <p>高并发读写 · 分布式事务 · 分库分表</p>
+        <div class="tech-tags">
+            <span class="tech-tag">Spring Boot</span>
+            <span class="tech-tag">Redis</span>
+            <span class="tech-tag">Kafka</span>
+            <span class="tech-tag">ElasticSearch</span>
+            <span class="tech-tag">MySQL 主从</span>
+            <span class="tech-tag">ShardingSphere</span>
+            <span class="tech-tag">Nginx</span>
+            <span class="tech-tag">Docker</span>
+            <span class="tech-tag">TCC 事务</span>
+        </div>
+    </div>
 
-        <section class="product-section">
-            <h2>🔥 热门商品（点击秒杀抢购）</h2>
-            <div id="product-list" class="product-grid"></div>
-        </section>
+    <section class="auth-section" id="auth-section">
+        <div class="auth-tabs">
+            <button type="button" class="tab-btn active" id="tab-login">登录</button>
+            <button type="button" class="tab-btn" id="tab-register">注册</button>
+        </div>
+        <form id="login-form" class="auth-form">
+            <input type="text" id="login-username" placeholder="用户名" autocomplete="username">
+            <input type="password" id="login-password" placeholder="密码" autocomplete="current-password">
+            <button type="submit" class="btn btn-primary">登录</button>
+        </form>
+        <form id="register-form" class="auth-form" style="display:none;">
+            <input type="text" id="reg-username" placeholder="用户名" autocomplete="username">
+            <input type="password" id="reg-password" placeholder="密码" autocomplete="new-password">
+            <input type="tel" id="reg-phone" placeholder="手机号（如 13800138000）">
+            <button type="submit" class="btn btn-primary">注册</button>
+        </form>
+        <div id="auth-msg"></div>
+    </section>
 
-        <section class="order-section" id="order-section">
-            <h2>📦 我的订单</h2>
-            <div id="order-list"></div>
-        </section>
+    <div class="section-card">
+        <div class="section-header">
+            <h2>🔍 商品搜索 <span style="font-size:12px;color:#6b7280;font-weight:400;">Powered by ElasticSearch</span></h2>
+        </div>
+        <div class="search-bar">
+            <input type="text" id="search-input" placeholder="搜索商品名称或描述...">
+            <button class="btn btn-primary" id="btn-search" style="width:auto;">搜索</button>
+        </div>
+        <div id="search-results"></div>
+    </div>
 
-        <section class="order-section" id="sharding-order-section">
-            <h2>📦 分库分表订单（ShardingSphere）</h2>
-            <div id="sharding-order-list"></div>
-        </section>
+    <div class="section-card">
+        <div class="section-header">
+            <h2>🛍️ 热门商品</h2>
+            <span class="badge">Redis 缓存加速</span>
+        </div>
+        <div class="product-grid" id="product-list">
+            <div class="empty-state"><div class="icon">⏳</div><p>加载中...</p></div>
+        </div>
+    </div>
 
-        <section class="server-info">
-            <h3>服务器信息</h3>
-            <button class="btn btn-secondary" type="button" id="btn-check-server">检测当前处理节点</button>
-            <p id="server-port" class="port-info"></p>
-        </section>
-    </main>
+    <div class="section-card" id="order-section">
+        <div class="section-header">
+            <h2>📋 我的订单</h2>
+            <span class="badge">Kafka 异步处理</span>
+        </div>
+        <div id="order-list">
+            <div class="empty-state"><div class="icon">📦</div><p>暂无订单</p></div>
+        </div>
+    </div>
 
-    <footer>
-        <p>&copy; 2026 商品库存与秒杀系统 - 分布式软件课程作业</p>
-    </footer>
+    <div class="section-card" id="sharding-order-section">
+        <div class="section-header">
+            <h2>🗄️ 分库分表订单</h2>
+            <span class="badge">ShardingSphere</span>
+        </div>
+        <div id="sharding-order-list">
+            <div class="empty-state"><div class="icon">📦</div><p>暂无分片订单</p></div>
+        </div>
+    </div>
 
-    <script src="/js/app.js"></script>
+    <div class="server-info">
+        <h3>⚙️ 服务器信息</h3>
+        <div class="right">
+            <span>当前实例端口：<span class="port-info" id="server-port">--</span></span>
+            <button class="btn btn-secondary btn-sm" id="btn-check-server">检测</button>
+        </div>
+    </div>
+
+</div>
+
+<footer>
+    分布式软件原理与技术 · 商品库存与秒杀系统 · 11 Docker Services
+</footer>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script src="/js/app.js"></script>
 </body>
 </html>
